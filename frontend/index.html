@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="description" content="Money receipt and required test list system for the Department of Neurology." />
+    <title>Medical Receipt System</title>
+    <script>
+      // Apply the saved theme before first paint so the UI never flashes.
+      (function () {
+        try {
+          var saved = JSON.parse(localStorage.getItem('mrs.theme') || '{}');
+          var mode = saved.mode || 'system';
+          var dark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          if (saved.density) document.documentElement.dataset.density = saved.density;
+          if (saved.radius) document.documentElement.style.setProperty('--radius-scale', saved.radius);
+          if (saved.fontScale) document.documentElement.style.setProperty('--font-scale', saved.fontScale);
+
+          // The hospital's brand ramp, cached from the last visit. Without
+          // this the sign-in page would flash the built-in default colour
+          // before /api/settings answers.
+          var brand = JSON.parse(localStorage.getItem('mrs.brand') || 'null');
+          if (brand && brand.vars) {
+            for (var name in brand.vars) {
+              document.documentElement.style.setProperty(name, brand.vars[name]);
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
