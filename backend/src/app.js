@@ -28,9 +28,16 @@ app.use(
     origin(origin, callback) {
       // server-to-server calls and curl have no Origin header
       if (!origin) return callback(null, true);
-      if (env.frontendUrls.includes(origin)) return callback(null, true);
-      if (!env.isProd && /^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
-      return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
+      const cleanOrigin = origin.replace(/\/+$/, '');
+      if (
+        env.frontendUrls.includes('*') ||
+        env.frontendUrls.includes(cleanOrigin) ||
+        cleanOrigin.endsWith('.vercel.app')
+      ) {
+        return callback(null, true);
+      }
+      if (!env.isProd && /^http:\/\/localhost:\d+$/.test(cleanOrigin)) return callback(null, true);
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],

@@ -13,7 +13,9 @@ if (missing.length) {
 }
 
 const list = (value, fallback = []) =>
-  (value ? value.split(',') : fallback).map((v) => v.trim()).filter(Boolean);
+  (value ? value.split(',') : fallback)
+    .map((v) => v.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
 
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',

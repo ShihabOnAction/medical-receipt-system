@@ -1,11 +1,13 @@
 import axios from 'axios';
 import { supabase, getAccessToken } from '../lib/supabase.js';
-
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const rawBaseURL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const baseURL = rawBaseURL.replace(/\/+$/, '').endsWith('/api')
+  ? rawBaseURL.replace(/\/+$/, '')
+  : `${rawBaseURL.replace(/\/+$/, '')}/api`;
 
 export const api = axios.create({
   baseURL,
-  timeout: 45_000,
+  timeout: 60_000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -50,7 +52,7 @@ export function normalizeError(error) {
   const normalized = new Error(
     payload?.message ||
       (error?.code === 'ECONNABORTED'
-        ? 'The request timed out. Check your connection and try again.'
+        ? 'The server is waking up from standby (free tier). Please wait a moment and try again.'
         : error?.message === 'Network Error'
           ? 'Cannot reach the server. Check your internet connection.'
           : 'Something went wrong. Please try again.')

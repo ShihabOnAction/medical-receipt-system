@@ -15,6 +15,17 @@ let logoCache;
 
 /** One shared Chromium instance - launching per request is far too slow. */
 async function getBrowser() {
+  if (browserPromise) {
+    try {
+      const b = await browserPromise;
+      if (!b || !b.isConnected()) {
+        browserPromise = null;
+      }
+    } catch {
+      browserPromise = null;
+    }
+  }
+
   if (!browserPromise) {
     browserPromise = puppeteer
       .launch({
@@ -24,6 +35,13 @@ async function getBrowser() {
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-extensions',
+          '--hide-scrollbars',
+          '--mute-audio',
           '--font-render-hinting=none',
         ],
       })
@@ -56,35 +74,44 @@ async function getLogoDataUri(settings) {
   return logoCache;
 }
 
+let pdfRenderQueue = Promise.resolve();
+
 /**
  * Renders the receipt as a real vector A4 PDF (text stays selectable and
- * prints crisply - never a screenshot).
+ * prints crisply - never a screenshot). Serialized to prevent concurrent Chromium
+ * page spikes and avoid OOM on limited memory hosting.
  * @returns {Promise<Buffer>}
  */
-export async function generateReceiptPdf(receipt, { settings } = {}) {
-  const config = settings || (await getSettingsRow());
-  const logoSrc = await getLogoDataUri(config);
-  const html = renderReceiptHtml(receipt, config, { logoSrc });
+export function generateReceiptPdf(receipt, { settings } = {}) {
+  const task = async () => {
+    const config = settings || (await getSettingsRow());
+    const logoSrc = await getLogoDataUri(config);
+    const html = renderReceiptHtml(receipt, config, { logoSrc });
 
-  let page;
-  try {
-    const browser = await getBrowser();
-    page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'load', timeout: 20_000 });
-    await page.emulateMediaType('print');
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      preferCSSPageSize: true,
-    });
-    return Buffer.from(pdf);
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[pdf] generation failed:', error?.message);
-    throw ApiError.internal('The receipt PDF could not be generated. Please try again.');
-  } finally {
-    if (page) await page.close().catch(() => {});
-  }
+    let page;
+    try {
+      const browser = await getBrowser();
+      page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'load', timeout: 20_000 });
+      await page.emulateMediaType('print');
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        preferCSSPageSize: true,
+      });
+      return Buffer.from(pdf);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[pdf] generation failed:', error?.message);
+      throw ApiError.internal('The receipt PDF could not be generated. Please try again.');
+    } finally {
+      if (page) await page.close().catch(() => {});
+    }
+  };
+
+  const next = pdfRenderQueue.then(task, task);
+  pdfRenderQueue = next.catch(() => {});
+  return next;
 }
 
 /** Returns the raw HTML - used by the in-app print preview. */
