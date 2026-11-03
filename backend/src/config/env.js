@@ -17,14 +17,23 @@ const list = (value, fallback = []) =>
     .map((v) => v.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
+const clean = (val) => (val ? String(val).trim().replace(/^["']|["']$/g, '') : '');
+
+const rawUrl = clean(process.env.SUPABASE_URL);
+const formattedUrl = rawUrl
+  ? rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
+    ? rawUrl
+    : `https://${rawUrl}`
+  : '';
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   isProd: process.env.NODE_ENV === 'production',
   port: Number(process.env.PORT || 4000),
 
-  supabaseUrl: process.env.SUPABASE_URL,
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+  supabaseUrl: formattedUrl,
+  supabaseServiceRoleKey: clean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  supabaseAnonKey: clean(process.env.SUPABASE_ANON_KEY),
 
   frontendUrls: list(process.env.FRONTEND_URL, ['http://localhost:5173']),
 
